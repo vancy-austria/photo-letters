@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Pinyon+Script&family=Great+Vibes&family=Tangerine:wght@700&family=Playfair+Display:wght@900&family=Abril+Fatface&family=Bodoni+Moda:opsz,wght@6..96,900&family=Titan+One&family=Rammetto+One&family=EB+Garamond:wght@400;500&family=Cormorant+Garamond:wght@500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=3">
+<link rel="stylesheet" href="style.css?v=4">
 </head>
 <body>
 
@@ -19,10 +19,33 @@
 <main>
   <section class="stage" id="stage">
     <canvas id="canvas"></canvas>
-    <p class="hint" id="hint">Fotos hochladen, dann <b>Zufall füllen</b> oder Foto aus Liste auf Buchstaben ziehen.</p>
+    <p class="hint" id="hint">Foto in der Liste <b>doppelt tippen</b> oder auf Buchstaben ziehen. Oder <b>Zufall füllen</b>.</p>
   </section>
 
   <section class="panel">
+
+    <div class="btns">
+      <label class="btn file">Fotos wählen
+        <input id="file" type="file" accept="image/*" multiple hidden>
+      </label>
+      <button id="btnFill" class="btn">Zufall füllen</button>
+      <button id="btnClear" class="btn">Fotos aus Text leeren</button>
+    </div>
+
+    <div id="photos" class="photos" aria-label="Foto Liste"></div>
+
+    <div id="sel" class="sel" hidden>
+      <span id="selName">Foto</span>
+      <label class="mini">Größe
+        <input id="selSize" type="range" min="4" max="120" value="25">
+      </label>
+      <button id="selCrop" class="btn small" aria-pressed="false">Zuschneiden</button>
+      <label class="mini" id="zoomWrap" hidden>Zoom
+        <input id="selZoom" type="range" min="100" max="400" value="100">
+      </label>
+      <button id="selFront" class="btn small">Nach vorn</button>
+      <button id="selDel" class="btn small danger">Entfernen</button>
+    </div>
 
     <div class="row">
       <label>Zeile 1
@@ -58,25 +81,13 @@
       </select>
     </div>
 
-    <div class="btns">
-      <label class="btn file">Fotos wählen
-        <input id="file" type="file" accept="image/*" multiple hidden>
-      </label>
-      <button id="btnFill" class="btn">Zufall füllen</button>
-      <button id="btnClear" class="btn">Fotos aus Text leeren</button>
-      <button id="btnOrient" class="btn">Querformat</button>
-    </div>
-
-    <div id="photos" class="photos" aria-label="Foto Liste"></div>
-
-    <div id="sel" class="sel" hidden>
-      <span id="selName">Foto</span>
-      <input id="selSize" type="range" min="4" max="120" value="25" aria-label="Größe">
-      <button id="selFront" class="btn small">Nach vorn</button>
-      <button id="selDel" class="btn small danger">Entfernen</button>
-    </div>
-
     <div class="row quality">
+      <label class="toggle" title="Format">
+        <span>Querformat</span>
+        <input id="orient" type="checkbox" role="switch" aria-label="Hochformat">
+        <i></i>
+        <span>Hochformat</span>
+      </label>
       <label>PDF Qualität
         <select id="dpi">
           <option value="150">150 dpi (klein)</option>
@@ -92,6 +103,6 @@
 <div id="ghost" class="ghost" hidden></div>
 <div id="busy" class="busy" hidden><span>PDF wird gebaut …</span></div>
 
-<script src="app.js?v=3"></script>
+<script src="app.js?v=4"></script>
 </body>
 </html>

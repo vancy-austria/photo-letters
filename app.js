@@ -137,13 +137,22 @@ function layout(c) {
 
 /* ---------- drawing ---------- */
 
-function drawCover(c, img, x, y, w, h) {
-  const ia = img.naturalWidth / img.naturalHeight;
+/* source rect for an item: cover fit, then zoom + pan (crop) */
+function srcRect(img, w, h, it) {
+  const iw = img.naturalWidth, ih = img.naturalHeight;
   const ra = w / h;
-  let sw = img.naturalWidth, sh = img.naturalHeight, sx = 0, sy = 0;
-  if (ia > ra) { sw = sh * ra; sx = (img.naturalWidth - sw) / 2; }
-  else { sh = sw / ra; sy = (img.naturalHeight - sh) / 2; }
-  c.drawImage(img, sx, sy, sw, sh, x, y, w, h);
+  let sw = iw, sh = ih;
+  if (iw / ih > ra) sw = ih * ra; else sh = iw / ra;
+  const z = (it && it.zoom) || 1;
+  sw /= z; sh /= z;
+  const px = it && it.px != null ? it.px : 0.5;
+  const py = it && it.py != null ? it.py : 0.5;
+  return { sw, sh, sx: (iw - sw) * px, sy: (ih - sh) * py, rx: iw - sw, ry: ih - sh };
+}
+
+function drawCover(c, img, x, y, w, h, it) {
+  const s = srcRect(img, w, h, it);
+  c.drawImage(img, s.sx, s.sy, s.sw, s.sh, x, y, w, h);
 }
 
 const photoById = (id) => state.photos.find((p) => p.id === id);
@@ -179,7 +188,7 @@ function render(c, s, L) {
     const p = photoById(it.photoId);
     if (!p) continue;
     const r = itemRect(it, word);
-    drawCover(bc, p.img, r.x, r.y, r.w, r.h);
+    drawCover(bc, p.img, r.x, r.y, r.w, r.h, it);
     bc.strokeStyle = 'rgba(255,255,255,.85)';
     bc.lineWidth = Math.max(0.6, 1.4 / s);
     bc.strokeRect(r.x, r.y, r.w, r.h);
@@ -420,6 +429,17 @@ canvas.addEventListener('pointerdown', (e) => {
     }
   }
 
+  // crop mode: drag inside the selected frame pans the photo
+  if (sel && state.crop) {
+    const rc = itemRect(sel, L.word);
+    if (pt.x >= rc.x && pt.x <= rc.x + rc.w && pt.y >= rc.y && pt.y <= rc.y + rc.h) {
+      capture(e.pointerId);
+      drag = { mode: 'pan', id: sel.id, sx: pt.x, sy: pt.y,
+        px: sel.px != null ? sel.px : 0.5, py: sel.py != null ? sel.py : 0.5 };
+      return;
+    }
+  }
+
   for (let i = state.items.length - 1; i >= 0; i--) {
     const it = state.items[i];
     const rc = itemRect(it, L.word);
@@ -450,7 +470,14 @@ canvas.addEventListener('pointermove', (e) => {
   if (!it) return;
   const pt = canvasToPt(e);
 
-  if (drag.mode === 'move') {
+  if (drag.mode === 'pan') {
+    const p = photoById(it.photoId);
+    const rc = itemRect(it, word);
+    const s = srcRect(p.img, rc.w, rc.h, it);
+    const k = s.sw / rc.w; // source px per pt
+    if (s.rx > 0) it.px = Math.min(1, Math.max(0, drag.px - ((pt.x - drag.sx) * k) / s.rx));
+    if (s.ry > 0) it.py = Math.min(1, Math.max(0, drag.py - ((pt.y - drag.sy) * k) / s.ry));
+  } else if (drag.mode === 'move') {
     it.x = (pt.x - drag.dx - word.bx) / word.bw;
     it.y = (pt.y - drag.dy - word.by) / word.bh;
   } else {
@@ -471,8 +498,26 @@ canvas.addEventListener('pointercancel', endDrag);
 
 let thumbDrag = null;
 
+let lastTap = { id: null, t: 0 };
+
+/* double click / double tap on a thumbnail: put photo in the middle of the word */
+function insertCentered(photo) {
+  const L = view.L || layout(ctx);
+  if (!L.word) return;
+  const r = canvas.getBoundingClientRect();
+  const jit = () => (Math.random() - 0.5) * r.width * 0.2;
+  dropPhotoAt(photo, { clientX: r.left + r.width / 2 + jit(), clientY: r.top + r.height * 0.5 + jit() * 0.3 });
+}
+
 function startThumbDrag(e, photo, el) {
   e.preventDefault();
+  const now = Date.now();
+  if (lastTap.id === photo.id && now - lastTap.t < 400) {
+    lastTap = { id: null, t: 0 };
+    state.selPhoto = photo.id;
+    insertCentered(photo);
+    return;
+  }
   state.selPhoto = photo.id;
   state.selItem = null;
   renderPhotos();
@@ -499,6 +544,7 @@ function startThumbDrag(e, photo, el) {
     const inside = ev.clientX >= r.left && ev.clientX <= r.right &&
                    ev.clientY >= r.top && ev.clientY <= r.bottom;
     if (inside) dropPhotoAt(photo, { clientX: ev.clientX, clientY: ev.clientY });
+    else if (!thumbDrag.moved) lastTap = { id: photo.id, t: Date.now() };
     thumbDrag = null;
   };
   window.addEventListener('pointermove', move);
@@ -543,13 +589,29 @@ canvas.addEventListener('dblclick', (e) => {
 function syncSel(sizeOnly) {
   const box = $('sel');
   const it = state.items.find((i) => i.id === state.selItem);
-  if (!it) { box.hidden = true; return; }
+  if (!it) { box.hidden = true; state.crop = false; return; }
   box.hidden = false;
   const p = photoById(it.photoId);
   $('selName').textContent = p ? p.name : 'Foto';
   $('selSize').value = String(Math.round(it.w * 100));
+  $('selZoom').value = String(Math.round((it.zoom || 1) * 100));
+  $('selCrop').setAttribute('aria-pressed', String(!!state.crop));
+  $('zoomWrap').hidden = !state.crop;
   if (sizeOnly) return;
 }
+
+$('selCrop').addEventListener('click', () => {
+  state.crop = !state.crop;
+  syncSel();
+  draw();
+});
+
+$('selZoom').addEventListener('input', (e) => {
+  const it = state.items.find((i) => i.id === state.selItem);
+  if (!it) return;
+  it.zoom = Number(e.target.value) / 100;
+  draw();
+});
 
 $('selSize').addEventListener('input', (e) => {
   const it = state.items.find((i) => i.id === state.selItem);
@@ -594,9 +656,8 @@ $('btnClear').addEventListener('click', () => {
   renderPhotos();
   draw();
 });
-$('btnOrient').addEventListener('click', (e) => {
-  state.landscape = !state.landscape;
-  e.target.textContent = state.landscape ? 'Querformat' : 'Hochformat';
+$('orient').addEventListener('change', (e) => {
+  state.landscape = !e.target.checked;
   draw();
 });
 
@@ -687,7 +748,7 @@ $('btnPdf').addEventListener('click', async () => {
 
 // browsers restore form values after a reload, so take the dom as truth
 for (const k of ['line1', 'line2', 'line3', 'font1', 'font2', 'font3']) state[k] = $(k).value;
-$('btnOrient').textContent = state.landscape ? 'Querformat' : 'Hochformat';
+state.landscape = !$('orient').checked;
 
 loadFonts().then(() => {
   renderPhotos();

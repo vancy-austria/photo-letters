@@ -247,3 +247,57 @@ input[type=text], select {
   .stage { flex: 1 1 60%; position: sticky; top: 64px; }
   .panel { flex: 1 1 360px; max-width: 460px; }
 }
+
+/* no text select / callout while dragging on touch */
+.photos, .thumb, .sel, .btn, .stage {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.sel .mini {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 140px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.sel .mini input { flex: 1; }
+.btn[aria-pressed="true"] { background: var(--accent); color: #11130f; border-color: var(--accent); }
+
+.row.quality { align-items: flex-end; flex-wrap: wrap; }
+.toggle {
+  flex-direction: row !important;
+  align-items: center;
+  gap: 8px !important;
+  font-size: 13px !important;
+  color: var(--fg) !important;
+  cursor: pointer;
+}
+.toggle input { position: absolute; opacity: 0; width: 0; height: 0; }
+.toggle i {
+  position: relative;
+  flex: 0 0 auto;
+  width: 46px;
+  height: 26px;
+  border-radius: 13px;
+  background: #242a1f;
+  border: 1px solid var(--line);
+}
+.toggle i::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--accent);
+  transition: transform .15s;
+}
+.toggle input:checked + i::after { transform: translateX(20px); }
+.toggle span:first-child { opacity: 1; }
+.toggle input:checked ~ span:first-child { opacity: .5; }
+.toggle input:not(:checked) ~ span:last-child { opacity: .5; }
