@@ -307,3 +307,56 @@ input[type=text], select {
 .zoom { display: flex; align-items: center; gap: 8px; color: #333; font-size: 13px; }
 .zoom .btn { background: #eee; color: #222; border-color: #ccc; }
 .zoom span { min-width: 44px; text-align: center; }
+
+.sel { flex-direction: column; align-items: stretch; }
+.selrow { display: flex; align-items: center; gap: 8px; }
+.selrow span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.btn.icon { display: inline-flex; align-items: center; padding: 6px 8px; }
+.toggle.crop { justify-content: space-between; }
+.counts { margin: 0; font-size: 12px; color: var(--muted); }
+
+.bar h1 { display: flex; align-items: center; gap: 8px; }
+.infoBtn { display: inline-flex; padding: 4px; color: var(--muted); background: none; border: 0; cursor: pointer; }
+.infoBtn:hover { color: var(--fg); }
+.modal { position: fixed; inset: 0; z-index: 70; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(0,0,0,.7); }
+.modal .card { max-width: 440px; max-height: 90vh; overflow: auto; padding: 20px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; }
+.modal h2 { margin: 0 0 10px; font-size: 18px; }
+.modal ol { margin: 0 0 10px; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; }
+.modal .note { margin: 0 0 14px; font-size: 12px; color: var(--muted); }
+
+.toggle { display: flex; }
+.toggle i { display: inline-block; }
+.modal .hideOpt { display: flex; align-items: center; gap: 8px; margin: 0 0 14px; font-size: 14px; }
+.modal .hideOpt input { width: 18px; height: 18px; accent-color: var(--accent); }
+
+.croprow { display: flex; align-items: center; gap: 14px; }
+.toggle.crop { justify-content: flex-start; flex: 0 0 auto; }
+.croprow .mini { flex: 1; min-width: 0; }
+
+/* orientation toggle: only the active side is colored */
+.toggle span:first-child, .toggle input:checked ~ span:first-child, .toggle input:not(:checked) ~ span:last-child { opacity: 1; }
+.toggle.orient span { color: var(--muted); font-weight: 400; }
+.toggle.orient:has(input:not(:checked)) span:first-child,
+.toggle.orient:has(input:checked) span:last-child { color: var(--accent); font-weight: 600; }
+.toggle.orient i::after { background: var(--muted); }
+
+/* crop toggle: label colored only while on */
+.toggle.crop span { color: var(--muted); font-weight: 400; }
+.toggle.crop:has(input:checked) span { color: var(--accent); font-weight: 600; }
+.toggle.crop i::after { background: var(--muted); }
+.toggle.crop input:checked + i::after { background: var(--accent); }
+
+.spin { display: inline-block; width: 11px; height: 11px; margin-right: 6px; vertical-align: -1px; border: 2px solid var(--line); border-top-color: var(--accent); border-radius: 50%; animation: spin .7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.sizesel { max-width: 30%; }
+
+@media (max-width: 520px) {
+  .panel .row:not(.quality) { flex-wrap: wrap; }
+  .panel .row:not(.quality) label { flex: 1 1 100%; }
+  .panel .row:not(.quality) .fontsel { flex: 1 1 0; max-width: none; }
+}
+
+.modal .hideOpt { justify-content: center; }
+.modal .card { text-align: left; }
+.modal .card > .primary { display: block; margin: 0 auto; }

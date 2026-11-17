@@ -3,7 +3,7 @@
 /* ---------- constants ---------- */
 
 const MM_PT = 72 / 25.4;
-const A3_MM = { w: 420, h: 297 };            // landscape
+const SIZES = { A3: { w: 420, h: 297 }, A4: { w: 297, h: 210 }, A5: { w: 210, h: 148 } }; // landscape
 const PAGE_BG = '#ffffff';
 const LETTER_BG = '#ededed';                  // shows through where no photo sits
 const INK = '#141414';
@@ -18,6 +18,10 @@ const state = {
   font2: 'Playfair Display',
   font3: 'EB Garamond',
   landscape: true,
+  size: 'A3',
+  tsize1: 'mittel',
+  tsize3: 'klein',
+  crop: false,
   photos: [],          // { id, name, img, aspect, url }
   items: [],           // { id, photoId, x, y, w, h }  normalized to word bbox
   selItem: null,
@@ -47,6 +51,8 @@ const WEIGHT = {
   'Titan One': 400,
   'Rammetto One': 400,
   'Tangerine': 700,
+  'Montserrat': 500,
+  'Raleway': 500,
 };
 
 function specFor(which) {
@@ -60,7 +66,7 @@ async function loadFonts() {
     '400 100px "Pinyon Script"', '400 100px "Great Vibes"', '700 100px "Tangerine"',
     '900 100px "Playfair Display"', '900 100px "Bodoni Moda"', '400 100px "Abril Fatface"',
     '400 100px "Titan One"', '400 100px "Rammetto One"',
-    '500 100px "EB Garamond"', '500 100px "Cormorant Garamond"',
+    '500 100px "Montserrat"', '500 100px "Raleway"', '500 100px "EB Garamond"', '500 100px "Cormorant Garamond"',
   ];
   await Promise.all(want.map((f) => document.fonts.load(f).catch(() => {})));
   await document.fonts.ready;
@@ -68,8 +74,16 @@ async function loadFonts() {
 
 /* ---------- geometry helpers ---------- */
 
+// text size presets, 'klein' of line 3 and 'mittel' of line 1 are the base look
+const TEXT_SCALE = {
+  1: { klein: 0.7, mittel: 1, gross: 1.3 },
+  3: { klein: 1, mittel: 1.35, gross: 1.7 },
+};
+const textScale = (n) => TEXT_SCALE[n][state['tsize' + n]] || 1;
+
 function pageSize() {
-  const mm = state.landscape ? A3_MM : { w: A3_MM.h, h: A3_MM.w };
+  const base = SIZES[state.size] || SIZES.A3;
+  const mm = state.landscape ? base : { w: base.h, h: base.w };
   return { w: mm.w * MM_PT, h: mm.h * MM_PT, mmW: mm.w, mmH: mm.h };
 }
 
@@ -99,9 +113,9 @@ function layout(c) {
 
   const blocks = [];
 
-  const s1 = state.line1 ? fitSize(c, state.line1, specFor(1), maxW * 0.78, p.h * 0.20) : 0;
+  const s1 = state.line1 ? fitSize(c, state.line1, specFor(1), Math.min(maxW, maxW * 0.78 * textScale(1)), p.h * 0.20 * textScale(1)) : 0;
   const s2 = state.line2 ? fitSize(c, state.line2, specFor(2), maxW, p.h * 0.46) : 0;
-  const s3 = state.line3 ? fitSize(c, state.line3, specFor(3), maxW * 0.70, p.h * 0.075) : 0;
+  const s3 = state.line3 ? fitSize(c, state.line3, specFor(3), Math.min(maxW, maxW * 0.70 * textScale(3)), p.h * 0.075 * textScale(3)) : 0;
 
   const m1 = state.line1 ? metrics(c, state.line1, specFor(1), s1) : null;
   const m2 = state.line2 ? metrics(c, state.line2, specFor(2), s2) : null;
@@ -294,7 +308,9 @@ function usageCount(photoId) {
 function renderPhotos() {
   const has = state.photos.length > 0;
   $('btnFill').hidden = !has;
-  $('btnClear').hidden = !has;
+  $('btnClear').hidden = state.items.length === 0;
+  $('btnClear').textContent = `Alle Fotos (${state.items.length}) aus Text entfernen`;
+  updateCounts();
   photosEl.innerHTML = '';
   for (const p of state.photos) {
     const el = document.createElement('div');
@@ -322,15 +338,48 @@ function removePhoto(id) {
   draw();
 }
 
+const upload = { busy: false, i: 0, n: 0, note: '', timer: 0 };
+
+function updateCounts() {
+  const el = $('counts');
+  el.hidden = !state.photos.length && !upload.busy && !upload.note;
+  el.textContent = '';
+  if (upload.busy) {
+    const sp = document.createElement('span');
+    sp.className = 'spin';
+    el.append(sp);
+  }
+  let t = `Fotos hochgeladen: ${state.photos.length}`;
+  if (upload.note) t += ` (${upload.note})`;
+  t += `. Fotos im Text: ${state.items.length}.`;
+  if (upload.busy) t += ` ${upload.i}/${upload.n} hochladen`;
+  el.append(t);
+}
+
 async function addFiles(files) {
   const list = [...files].filter((f) => f.type.startsWith('image/'));
+  if (!list.length) return;
+  clearTimeout(upload.timer);
+  Object.assign(upload, { busy: true, i: 0, n: list.length, note: '' });
+  updateCounts();
+  let skipped = 0;
   for (const f of list) {
+    upload.i++;
+    updateCounts();
+    // same name, size and date = same file, skip it
+    const key = `${f.name}|${f.size}|${f.lastModified}`;
+    if (state.photos.some((p) => p.key === key)) { skipped++; continue; }
     const url = URL.createObjectURL(f);
     const img = new Image();
     img.src = url;
     try { await img.decode(); } catch { continue; }
-    state.photos.push({ id: uid(), name: f.name, img, url,
+    state.photos.push({ id: uid(), name: f.name, key, img, url,
       aspect: img.naturalWidth / img.naturalHeight });
+  }
+  upload.busy = false;
+  if (skipped) {
+    upload.note = skipped === 1 ? '1 Duplikat übersprungen' : `${skipped} Duplikate übersprungen`;
+    upload.timer = setTimeout(() => { upload.note = ''; updateCounts(); }, 6000);
   }
   renderPhotos();
   draw();
@@ -406,7 +455,7 @@ function autoFill() {
       photoId: pool[i].id,
       x: cell.col * cw - (w - cw) / 2 + jx,
       y: cell.row * ch - (h - ch) / 2 + jy,
-      w, h,
+      w, h, py: 0.1,
     };
   });
 
@@ -581,7 +630,7 @@ function dropPhotoAt(photo, e) {
   const h = (w * A) / photo.aspect;
   const it = { id: uid(), photoId: photo.id,
     x: (pt.x - word.bx) / word.bw - w / 2,
-    y: (pt.y - word.by) / word.bh - h / 2, w, h };
+    y: (pt.y - word.by) / word.bh - h / 2, w, h, py: 0.1 };
   state.items.push(it);
   state.selItem = it.id;
   state.selPhoto = photo.id;
@@ -614,13 +663,13 @@ function syncSel(sizeOnly) {
   $('selName').textContent = p ? p.name : 'Foto';
   $('selSize').value = String(Math.round(it.w * 100));
   $('selZoom').value = String(Math.round((it.zoom || 1) * 100));
-  $('selCrop').setAttribute('aria-pressed', String(!!state.crop));
+  $('selCrop').checked = !!state.crop;
   $('zoomWrap').hidden = !state.crop;
   if (sizeOnly) return;
 }
 
-$('selCrop').addEventListener('click', () => {
-  state.crop = !state.crop;
+$('selCrop').addEventListener('change', (e) => {
+  state.crop = e.target.checked;
   syncSel();
   draw();
 });
@@ -662,6 +711,10 @@ $('selFront').addEventListener('click', () => {
 for (const [id, key] of [['line1', 'line1'], ['line2', 'line2'], ['line3', 'line3']]) {
   $(id).addEventListener('input', (e) => { state[key] = e.target.value; draw(); });
 }
+for (const n of [1, 3]) {
+  $('tsize' + n).addEventListener('change', (e) => { state['tsize' + n] = e.target.value; draw(); });
+}
+$('size').addEventListener('change', (e) => { state.size = e.target.value; draw(); });
 for (const [id, key] of [['font1', 'font1'], ['font2', 'font2'], ['font3', 'font3']]) {
   $(id).addEventListener('change', (e) => { state[key] = e.target.value; draw(); });
 }
@@ -747,7 +800,7 @@ async function exportPdf() {
 
   const a = document.createElement('a');
   a.href = URL.createObjectURL(pdf);
-  a.download = `${(state.line2 || 'poster').replace(/[^\w-]+/g, '_')}-A3.pdf`;
+  a.download = `${(state.line2 || 'poster').replace(/[^\w-]+/g, '_')}-${state.size}.pdf`;
   document.body.appendChild(a);
   a.click();
   a.remove();
@@ -768,9 +821,28 @@ $('btnPdf').addEventListener('click', async () => {
 // browsers restore form values after a reload, so take the dom as truth
 for (const k of ['line1', 'line2', 'line3', 'font1', 'font2', 'font3']) state[k] = $(k).value;
 state.landscape = !$('orient').checked;
+state.size = $('size').value;
+state.tsize1 = $('tsize1').value;
+state.tsize3 = $('tsize3').value;
 
 loadFonts().then(() => {
   renderPhotos();
   draw();
 });
 draw();
+
+/* ---------- help modal ---------- */
+
+const help = $('help');
+const HELP_KEY = 'photo-letters-hide-help';
+const toggleHelp = (on) => {
+  help.hidden = !on;
+  if (!on) {
+    try { $('helpHide').checked ? localStorage.setItem(HELP_KEY, '1') : localStorage.removeItem(HELP_KEY); } catch { /* private mode */ }
+  }
+};
+try { if (!localStorage.getItem(HELP_KEY)) toggleHelp(true); else $('helpHide').checked = true; } catch { toggleHelp(true); }
+$('btnInfo').addEventListener('click', () => toggleHelp(true));
+$('helpClose').addEventListener('click', () => toggleHelp(false));
+help.addEventListener('click', (e) => { if (e.target === help) toggleHelp(false); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !help.hidden) toggleHelp(false); });
