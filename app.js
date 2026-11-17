@@ -15,7 +15,7 @@ const state = {
   line2: 'COACH',
   line3: 'for all the amazing memories',
   font1: 'Pinyon Script',
-  font2: 'Playfair Display',
+  font2: 'BBH Hegarty',
   font3: 'EB Garamond',
   landscape: true,
   size: 'A3',
@@ -45,28 +45,34 @@ const fontSpec = (family, weight) => (size) => `${weight} ${size}px "${family}"`
 
 // families that ship only one cut, asking for 900 would fake the bold
 const WEIGHT = {
-  'Playfair Display': 900,
-  'Bodoni Moda': 900,
+  'BBH Hegarty': 400,
+  'Gasoek One': 400,
   'Abril Fatface': 400,
   'Titan One': 400,
   'Rammetto One': 400,
   'Tangerine': 700,
-  'Montserrat': 500,
+  'Montserrat Alternates': 200,
   'Raleway': 500,
+  'Press Start 2P': 400,
+  'Sancreek': 400,
+  'Bungee': 400,
 };
 
 function specFor(which) {
-  if (which === 1) return fontSpec(state.font1, WEIGHT[state.font1] || 400);
-  if (which === 2) return fontSpec(state.font2, WEIGHT[state.font2] || 400);
-  return fontSpec(state.font3, 500);
+  const family =
+    which === 1 ? state.font1 :
+    which === 2 ? state.font2 :
+    state.font3;
+
+  return fontSpec(family, WEIGHT[family] || 400);
 }
 
 async function loadFonts() {
   const want = [
     '400 100px "Pinyon Script"', '400 100px "Great Vibes"', '700 100px "Tangerine"',
-    '900 100px "Playfair Display"', '900 100px "Bodoni Moda"', '400 100px "Abril Fatface"',
-    '400 100px "Titan One"', '400 100px "Rammetto One"',
-    '500 100px "Montserrat"', '500 100px "Raleway"', '500 100px "EB Garamond"', '500 100px "Cormorant Garamond"',
+    '400 100px "BBH Hegarty"', '400 100px "Gasoek One"', '400 100px "Abril Fatface"',
+    '400 100px "Titan One"', '400 100px "Rammetto One"', '400 100px "Press Start 2P"', '400 100px "Sancreek"', '400 100px "Bungee"',
+    '200 100px "Montserrat Alternates"', '500 100px "Raleway"', '500 100px "EB Garamond"', '500 100px "Cormorant Garamond"',
   ];
   await Promise.all(want.map((f) => document.fonts.load(f).catch(() => {})));
   await document.fonts.ready;
