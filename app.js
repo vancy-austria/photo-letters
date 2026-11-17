@@ -222,14 +222,30 @@ function itemRect(it, word) {
 /* ---------- preview ---------- */
 
 let view = { s: 1, L: null };
+let viewZoom = 1;
+
+function setZoom(z) {
+  viewZoom = Math.min(4, Math.max(1, z));
+  $('zVal').textContent = Math.round(viewZoom * 100) + '%';
+  draw();
+}
+$('zIn').addEventListener('click', () => setZoom(viewZoom * 1.25));
+$('zOut').addEventListener('click', () => setZoom(viewZoom / 1.25));
+$('zReset').addEventListener('click', () => setZoom(1));
+canvas.addEventListener('wheel', (e) => {
+  if (!e.ctrlKey) return;
+  e.preventDefault();
+  setZoom(viewZoom * (e.deltaY < 0 ? 1.1 : 1 / 1.1));
+}, { passive: false });
 
 function draw() {
   const p = pageSize();
-  const cssW = canvas.parentElement.clientWidth - 16;
+  const cssW = (canvas.parentElement.clientWidth - 16) * viewZoom;
   const cssH = cssW * (p.h / p.w);
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
-  const s = (cssW / p.w) * dpr;
+  const s = Math.min((cssW / p.w) * dpr, 4000 / p.w);
 
+  canvas.style.width = cssW + 'px';
   canvas.style.height = cssH + 'px';
   canvas.width = Math.round(p.w * s);
   canvas.height = Math.round(p.h * s);
@@ -276,6 +292,9 @@ function usageCount(photoId) {
 }
 
 function renderPhotos() {
+  const has = state.photos.length > 0;
+  $('btnFill').hidden = !has;
+  $('btnClear').hidden = !has;
   photosEl.innerHTML = '';
   for (const p of state.photos) {
     const el = document.createElement('div');

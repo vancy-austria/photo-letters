@@ -301,3 +301,9 @@ input[type=text], select {
 .toggle span:first-child { opacity: 1; }
 .toggle input:checked ~ span:first-child { opacity: .5; }
 .toggle input:not(:checked) ~ span:last-child { opacity: .5; }
+
+.stage { overflow: auto; max-width: 100%; }
+.stage canvas { width: auto; margin: 0 auto; flex: 0 0 auto; }
+.zoom { display: flex; align-items: center; gap: 8px; color: #333; font-size: 13px; }
+.zoom .btn { background: #eee; color: #222; border-color: #ccc; }
+.zoom span { min-width: 44px; text-align: center; }
